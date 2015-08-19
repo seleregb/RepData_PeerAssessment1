@@ -1,25 +1,141 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+author: "Gbenro Selere"
+date: "August 16, 2015"
+output: html_document
+keep_md: true
 ---
 
 
-## Loading and preprocessing the data
+# Loading and Preprocessing the data
 
 
+```{r}
+unzip("activity.zip")
+monitor_data <- read.csv("activity.csv", colClasses = c("integer", "Date", "factor"))
 
-## What is mean total number of steps taken per day?
+head(monitor_data)
+
+str(monitor_data)
+
+summary(monitor_data)
+
+```
+
+# What is the mean total number of steps taken per day?
+
+For this part of the assignment, you can ignore the missing values in the dataset.
+
+- Make a histogram of the total number of steps taken each day
+
+```{r}
+
+totalSteps <- tapply(monitor_data$steps, monitor_data$date, FUN = sum, na.rm = TRUE)
+hist(totalSteps, breaks = 20, main = "Histogram showing steps taken per day", xlab = "steps taken", ylab = "frequency", col = "blue")
+
+```
+
+- Calculating the mean and median steps
+
+```{r}
+mean(totalSteps, na.rm = TRUE)
+median(totalSteps, na.rm = TRUE)
+```
 
 
+## Calculating the average daily activity pattern
 
-## What is the average daily activity pattern?
+```{r}
+library(ggplot2)
+
+averageSteps <- aggregate(x = list(steps = monitor_data$steps), by = list(interval = as.numeric(as.character(monitor_data$interval))), FUN = mean, na.rm = TRUE)
+
+ggplot(data = averageSteps, aes(x = interval, y = steps)) + geom_line() + xlab("5-minute interval") + ylab("average number of steps taken")
+```
+
+What is the maximum number of steps taken in that 5-minute interval?
+
+```{r}
+averageSteps[which.max(averageSteps$steps), ]
+```
+
+## Inputting Missing values
+
+There are many days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+- Total number of missing values in the data 
+
+```{r}
+
+sum(is.na(monitor_data))
+
+```
+ - Now to fill in the missing values using the mean value for each 5-minute interval
+ 
+```{r}
+fill.value <- function(steps, interval) {
+    filled <- NA
+    if (!is.na(steps)) 
+        filled <- c(steps) else filled <- (averageSteps[averageSteps$interval == interval, "steps"])
+    return(filled)
+}
+newData <- monitor_data
+newData$steps <- mapply(fill.value, newData$steps, newData$interval)
+
+# Modified code from:
+```
+[https://github.com/sefakilic/coursera-repdata/blob/master/project1/PA1_template.md]
+
+- Now missing values have been filled in. Lets see what the histogram distribution looks like:
+
+```{r}
+totalSteps <- tapply(newData$steps, newData$date, FUN = sum)
+hist(totalSteps, breaks = 20, main = "Histogram showing steps taken per day", xlab = "steps taken", ylab = "frequency", col = "blue")
+``` 
+
+- Calculating the mean and median values again:
+
+```{r}
+mean(totalSteps)
+median(totalSteps)
+```
+
+From the values of the new mean and median we can see that the removal of missing values from data is very important so as to  conduct proper analysis for out data.
+
+# Are there differences in activity patterns between weekends and weekdays?
+
+- First we have to check the date measurement in the data to determine whether its a weekday or weekend
+
+```{r}
+head(newData)
+newData$weekdays <- factor(format(newData$date, "%A"))
+levels(newData$weekdays)
+levels(newData$weekdays) <- list(weekday = c("Monday", "Tuesday",
+                                             "Wednesday", 
+                                             "Thursday", "Friday"),
+                                 weekend = c("Saturday", "Sunday"))
+levels(newData$weekdays)
+table(newData$weekdays)
+
+#Modified code from
+```
+
+[https://github.com/Xiaodan/RepData_PeerAssessment1/blob/master/PA1_template.Rmd]
 
 
+- Now just as we did before when determining the daily average activity pattern, lets compare the number of steps taken during weekends and weekdays
 
-## Imputing missing values
+```{r}
+averageSteps <- aggregate(newData$steps, 
+                      list(interval = as.numeric(as.character(newData$interval)), 
+                           weekdays = newData$weekdays),
+                      FUN = "mean")
+names(averageSteps)[3] <- "meanOfSteps"
+library(lattice)
+xyplot(averageSteps$meanOfSteps ~ averageSteps$interval | averageSteps$weekdays, 
+       layout = c(1, 2), type = "l", 
+       xlab = "Interval", ylab = "Number of steps")
 
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+#Modified code from
+```
+[https://github.com/Xiaodan/RepData_PeerAssessment1/blob/master/PA1_template.Rmd]
